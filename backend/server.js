@@ -9,9 +9,14 @@ const PORT = process.env.PORT || 5000;
 // 2. Invoke the Database Connection
 connectDB();
 
+const authRoutes = require("./routes/authRoutes");
+
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+app.use("/api/auth", authRoutes);
 
 // Test Route
 app.get('/api/message', (req, res) => {
