@@ -78,7 +78,7 @@ export default function Login() {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:5000/api/auth/google';
+    window.location.href = 'https://ai-job-portal-ats.vercel.app/api/auth/google';
   };
 
   const handleLoginSubmit = async (e) => {
