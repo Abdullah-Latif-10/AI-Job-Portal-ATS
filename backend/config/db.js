@@ -11,8 +11,10 @@ const connectDB = async () => {
         await seedDB();
     } catch (error) {
         console.error(`Database Connection Error: ${error.message}`);
-        // Exit process with failure code if connection fails
-        process.exit(1); 
+        // Exit process with failure code if connection fails locally
+        if (process.env.NODE_ENV !== 'production') {
+            process.exit(1); 
+        }
     }
 };
 
