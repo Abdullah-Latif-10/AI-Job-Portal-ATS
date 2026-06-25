@@ -1,25 +1,59 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom"; // 1. Swapped out window links for React Router
 import { Leaf, Eye, EyeOff } from "lucide-react";
-import axios from "axios"; // Prepared for your API connection layer
+import API from "../api/axios";
+import { useAuth } from "../context/AuthContext";
+import { toast } from "sonner";
+import ThemeToggle from "../components/ThemeToggle";
 
 const ROLES = [
-  { id: "candidate", label: "I'm a candidate", desc: "Looking for my next role", to: "/candidate" },
-  { id: "recruiter", label: "I'm a recruiter", desc: "Hiring for my company", to: "/recruiter" },
+  { id: "Candidate", label: "I'm a candidate", desc: "Looking for my next role", to: "/candidate" },
+  { id: "Recruiter", label: "I'm a recruiter", desc: "Hiring for my company", to: "/recruiter" },
 ];
 
 export default function Signup() {
   const navigate = useNavigate(); // 2. Initialized programmatic redirect hook
+  const { user, login, isAuthenticated } = useAuth();
+  
   const [role, setRole] = useState(ROLES[0]); // 3. Removed TS type annotations
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   
-  // Explicit local state values for input data binding
-  const [fullName, setFullName] = useState("Maya Iyer");
-  const [email, setEmail] = useState("maya@example.com");
-  const [password, setPassword] = useState("demo1234");
-  const [confirm, setConfirm] = useState("demo1234");
+  // Cleaned: Removed dummy credentials
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState(null);
+
+  // Email verification states
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationError, setVerificationError] = useState("");
+  const [isResending, setIsResending] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const getRolePath = (roleName) => {
+        if (roleName === "Admin") return "/admin";
+        if (roleName === "Recruiter") return "/recruiter";
+        return "/candidate";
+      };
+      navigate(getRolePath(user.roleId?.name || "Candidate"), { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  // Resend code countdown timer
+  useEffect(() => {
+    let timer;
+    if (resendCountdown > 0) {
+      timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendCountdown]);
 
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
@@ -35,7 +69,6 @@ export default function Signup() {
       return;
     }
 
-    // Split full name cleanly into First Name and Last Name to match your Mongoose Model definitions
     const nameParts = fullName.trim().split(" ");
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
@@ -45,33 +78,131 @@ export default function Signup() {
       return;
     }
 
-    // --- SPRINT 1 MERN CONNECTIVITY ---
-    // Un-comment this block when your Express Registration router goes live!
-    /*
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/register", {
+      const response = await API.post("/auth/register", {
         firstName,
         lastName,
         email,
         password,
-        role: role.id // Sends 'candidate' or 'recruiter' to automatically query the Role collection
+        role: role.id
       });
       
-      // Store token on successful database entry
-      localStorage.setItem("token", response.data.token);
-      navigate(role.to);
+      setVerificationEmail(email);
+      setIsVerifying(true);
+      toast.success("Verification code sent to your email!");
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong during sign up.");
-      return;
     }
-    */
-
-    // Fallback mock redirect until backend is plugged in
-    navigate(role.to);
   };
 
+  const handleVerifySubmit = async (e) => {
+    e.preventDefault();
+    setVerificationError("");
+
+    try {
+      const response = await API.post("/auth/verify-email", {
+        email: verificationEmail,
+        code: verificationCode
+      });
+      toast.success("Email verified successfully!");
+      await login(response.data.accessToken || response.data.token, response.data.user);
+    } catch (err) {
+      setVerificationError(err.response?.data?.message || "Invalid or expired verification code.");
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendCountdown > 0 || isResending) return;
+    setVerificationError("");
+    setIsResending(true);
+
+    try {
+      await API.post("/auth/resend-verification", {
+        email: verificationEmail
+      });
+      setResendCountdown(30);
+      toast.success("Verification code resent successfully!");
+    } catch (err) {
+      setVerificationError(err.response?.data?.message || "Failed to resend verification code.");
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  if (isVerifying) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-5 py-10 bg-background text-foreground relative">
+        <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+          <ThemeToggle />
+        </div>
+        <div className="w-full max-w-sm">
+          <Link to="/" className="flex items-center gap-2 justify-center mb-8 no-underline text-foreground">
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
+              <Leaf className="w-4.5 h-4.5 text-primary-foreground" />
+            </div>
+            <span className="text-base font-semibold tracking-tight">Hireloop</span>
+          </Link>
+
+          <div className="rounded-3xl bg-card border border-border p-7 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.06)] animate-fade-in">
+            <h1 className="text-xl font-semibold tracking-tight text-center">Verify your email</h1>
+            <p className="text-sm text-muted-foreground text-center mt-2">
+              We sent a 6-digit verification code to <span className="font-medium text-foreground">{verificationEmail}</span>.
+            </p>
+
+            <form className="mt-6 space-y-4" onSubmit={handleVerifySubmit}>
+              <input
+                type="text"
+                maxLength={6}
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                className="w-full text-center rounded-xl border border-input bg-background px-4 py-3 text-lg font-bold tracking-[8px] focus:outline-none focus:ring-2 focus:ring-ring text-foreground placeholder:tracking-normal placeholder:font-normal"
+                required
+              />
+
+              {verificationError && (
+                <p className="text-xs text-destructive text-center font-medium">{verificationError}</p>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-medium hover:bg-primary/90 transition border-0 cursor-pointer active:scale-[0.98]"
+              >
+                Verify Code
+              </button>
+            </form>
+
+            <div className="mt-5 text-center text-xs">
+              <button
+                type="button"
+                disabled={resendCountdown > 0 || isResending}
+                onClick={handleResendCode}
+                className="text-primary hover:underline font-medium bg-transparent border-0 cursor-pointer disabled:text-muted-foreground disabled:no-underline"
+              >
+                {resendCountdown > 0 ? `Resend code in ${resendCountdown}s` : "Resend code"}
+              </button>
+            </div>
+
+            <div className="mt-4 border-t border-border pt-4 text-center">
+              <button
+                type="button"
+                onClick={() => setIsVerifying(false)}
+                className="text-xs text-muted-foreground hover:text-foreground bg-transparent border-0 cursor-pointer font-medium"
+              >
+                Back to registration
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-5 py-10 bg-background text-foreground">
+    <div className="min-h-screen flex items-center justify-center px-5 py-10 bg-background text-foreground relative">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-sm">
         {/* Fixed: Swapped <a> tag to <Link> to protect routing state cache */}
         <Link to="/" className="flex items-center gap-2 justify-center mb-8 no-underline text-foreground">
