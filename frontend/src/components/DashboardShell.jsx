@@ -1,11 +1,32 @@
 
 import { Link, useLocation } from "react-router-dom";
 import { Leaf, LogOut } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import ThemeToggle from "./ThemeToggle";
+
+const getActiveNavPath = (nav, pathname) => {
+  const matches = nav.filter((item) => {
+    if (item.to === "/") return pathname === "/";
+    return pathname === item.to || pathname.startsWith(`${item.to}/`);
+  });
+
+  if (matches.length === 0) return null;
+
+  // Prefer the most specific route so only one nav item is active.
+  return matches.sort((a, b) => b.to.length - a.to.length)[0].to;
+};
 
 export function DashboardShell({ role, nav, children, title, subtitle, action }) {
   // Grabs the current web URL location path reactive tracker state
   const location = useLocation();
   const pathname = location.pathname;
+  const activePath = getActiveNavPath(nav, pathname);
+  const { logout } = useAuth();
+
+  const handleLogout = async (e) => {
+    e.preventDefault();
+    await logout();
+  };
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -24,8 +45,7 @@ export function DashboardShell({ role, nav, children, title, subtitle, action })
 
         <nav className="flex-1 space-y-1">
           {nav.map((item) => {
-            // Evaluates active logic for sub-routes seamlessly 
-            const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to + "/"));
+            const active = item.to === activePath;
             const Icon = item.icon;
             return (
               <Link
@@ -44,13 +64,16 @@ export function DashboardShell({ role, nav, children, title, subtitle, action })
           })}
         </nav>
 
-        <Link
-          to="/login"
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+        <div className="space-y-1">
+          <ThemeToggle variant="sidebar" />
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 bg-transparent border-0 cursor-pointer w-full text-left font-medium"
         >
           <LogOut className="w-4 h-4" />
           Sign out
-        </Link>
+        </button>
+        </div>
       </aside>
 
       {/* Mobile top bar */}
@@ -61,42 +84,46 @@ export function DashboardShell({ role, nav, children, title, subtitle, action })
           </div>
           <span className="text-sm font-semibold tracking-tight">Hireloop</span>
         </Link>
-        <span className="text-xs text-muted-foreground">{role}</span>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <span className="text-xs text-muted-foreground">{role}</span>
+        </div>
       </div>
 
       {/* Mobile bottom nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-md border-t border-border px-2 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] flex justify-around">
-        {nav.slice(0, 5).map((item) => {
-          const active = pathname === item.to || (item.to !== "/" && pathname.startsWith(item.to + "/"));
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-md border-t border-border px-1 py-1.5 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] flex justify-around gap-0.5">
+        {nav.map((item) => {
+          const active = item.to === activePath;
           const Icon = item.icon;
           return (
             <Link
               key={item.to}
               to={item.to}
-              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-lg ${
+              title={item.label}
+              className={`flex flex-col items-center gap-0.5 min-w-0 flex-1 max-w-[4.5rem] px-1 py-1 rounded-lg ${
                 active ? "text-primary" : "text-muted-foreground"
               }`}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <Icon className="w-5 h-5 shrink-0" />
+              <span className="text-[9px] font-medium truncate w-full text-center leading-tight">{item.label}</span>
             </Link>
           );
         })}
       </div>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 pt-16 md:pt-0 pb-24 md:pb-0">
-        <div className="max-w-6xl mx-auto px-5 md:px-10 py-8 md:py-12 animate-fade-up-blur">
-          <header className="flex items-start justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-semibold text-foreground tracking-tight" style={{ lineHeight: "1.15" }}>
+      <main className="flex-1 min-w-0 pt-16 md:pt-0 pb-24 md:pb-0 overflow-x-hidden">
+        <div className="max-w-6xl mx-auto px-4 sm:px-5 md:px-10 py-6 sm:py-8 md:py-12 animate-fade-up-blur">
+          <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 sm:mb-8">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-foreground tracking-tight" style={{ lineHeight: "1.15" }}>
                 {title}
               </h1>
               {subtitle && (
                 <p className="text-sm text-muted-foreground mt-1.5">{subtitle}</p>
               )}
             </div>
-            {action}
+            {action && <div className="shrink-0 self-start sm:self-auto">{action}</div>}
           </header>
           {children}
         </div>
@@ -107,16 +134,16 @@ export function DashboardShell({ role, nav, children, title, subtitle, action })
 
 export function StatCard({ label, value, hint, icon: Icon }) {
   return (
-    <div className="rounded-2xl bg-card border border-border p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.03)]">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+    <div className="rounded-2xl bg-card border border-border p-4 sm:p-5 shadow-[0_1px_3px_0_rgba(0,0,0,0.03)] min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wider truncate">{label}</span>
         {Icon && (
           <div className="w-8 h-8 rounded-lg bg-accent/60 flex items-center justify-center">
             <Icon className="w-4 h-4 text-accent-foreground" />
           </div>
         )}
       </div>
-      <div className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{value}</div>
+      <div className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">{value}</div>
       {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
     </div>
   );
