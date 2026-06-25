@@ -24,6 +24,21 @@ const CompanyProfileSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  industry: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  size: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  status: {
+    type: String,
+    enum: ['Pending', 'Approved', 'Rejected'],
+    default: 'Pending'
   }
 }, { timestamps: true });
 

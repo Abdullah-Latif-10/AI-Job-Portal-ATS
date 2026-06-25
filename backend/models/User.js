@@ -42,6 +42,18 @@ const UserSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true // Used by Admin in Sprint 7 to suspend/delete accounts
+  },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  verificationCode: {
+    type: String,
+    default: null
+  },
+  verificationCodeExpires: {
+    type: Date,
+    default: null
   }
 }, { timestamps: true });
 

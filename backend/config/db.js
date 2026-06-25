@@ -1,9 +1,14 @@
 const mongoose = require('mongoose');
+const seedDB = require('./seed');
 
 const connectDB = async () => {
+    if (process.env.NODE_ENV === 'test') {
+        return;
+    }
     try {
         const conn = await mongoose.connect(process.env.MONGO_URI);
         console.log(`MongoDB Connected: ${conn.connection.host}`);
+        await seedDB();
     } catch (error) {
         console.error(`Database Connection Error: ${error.message}`);
         // Exit process with failure code if connection fails
