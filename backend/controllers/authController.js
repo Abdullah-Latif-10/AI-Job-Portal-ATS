@@ -369,15 +369,16 @@ exports.logout = async (req, res) => {
 };
 
 exports.handleGoogleCallback = async (req, res) => {
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
   try {
     if (!req.user) {
-      return res.redirect("http://localhost:5173/login?error=Google auth failed");
+      return res.redirect(`${frontendUrl}/login?error=Google auth failed`);
     }
     const authResponse = await issueAuthResponse(req.user, res);
-    return res.redirect(`http://localhost:5173/oauth-success?token=${authResponse.accessToken}`);
+    return res.redirect(`${frontendUrl}/oauth-success?token=${authResponse.accessToken}`);
   } catch (error) {
     console.error("Google auth callback failed:", error);
-    return res.redirect("http://localhost:5173/login?error=Server error during Google auth");
+    return res.redirect(`${frontendUrl}/login?error=Server error during Google auth`);
   }
 };
 
