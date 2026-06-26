@@ -8,7 +8,9 @@ const connectDB = async () => {
     try {
         const conn = await mongoose.connect(process.env.MONGO_URI);
         console.log(`MongoDB Connected: ${conn.connection.host}`);
-        await seedDB();
+        if (process.env.NODE_ENV !== 'production') {
+            await seedDB();
+        }
     } catch (error) {
         console.error(`Database Connection Error: ${error.message}`);
         // Exit process with failure code if connection fails locally
